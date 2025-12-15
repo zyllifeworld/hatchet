@@ -264,7 +264,7 @@ class AlleleCounter(Worker):
             self.dp,
             self.snplist[chromosome],
         )
-        cmd_query = "{} query -f '%CHROM\\t%POS\\t%REF,%ALT\\t%AD\\n' -i 'SUM(INFO/AD)<={} & SUM(INFO/AD)>={}'".format(
+        cmd_query = "{} query -f '%CHROM\\t%POS\\t%REF,%ALT\\t%INFO/AD\\n' -i 'SUM(INFO/AD)<={} & SUM(INFO/AD)>={}'".format(
             self.bcftools, self.dp, self.mincov
         )
         if self.E:
