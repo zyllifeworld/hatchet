@@ -66,9 +66,7 @@ def model_selection(
         lls = []
         for n, (obj, gamma), outprefix in ploidy_objs_add1:
             n = int(n)
-            segs = pd.read_table(f"{outprefix}.seg.ucn.tsv", sep="\t")
             bbcs = pd.read_table(f"{outprefix}.bbc.ucn.tsv", sep="\t")
-            bbcs["FCN"] = bbcs["RD"] * float(gamma)
             if n > 1:
                 bbcs[["exp-FCN", "exp-FCN-b"]] = bbcs.apply(
                     func=lambda r: compute_expected_fcn(r, n),
@@ -82,7 +80,7 @@ def model_selection(
             for (cluster_id, sample_id), bbc_sub in bbcs.groupby(
                 by=["CLUSTER", "SAMPLE"], sort=False
             ):
-                obs_fcns = bbc_sub["FCN"].to_numpy()
+                obs_fcns = bbc_sub["RD"].to_numpy() * float(gamma.loc[sample_id])
                 obs_bafs = bbc_sub["BAF"].to_numpy()
                 exp_fcns = bbc_sub["exp-FCN"].to_numpy()
                 exp_fcns_b = bbc_sub["exp-FCN-b"].to_numpy()
