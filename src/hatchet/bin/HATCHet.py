@@ -11,7 +11,7 @@ from hatchet import config, __version__
 from hatchet.utils.Supporting import ensure, log, error
 from hatchet.utils.solve import solve
 from hatchet.utils.solve.utils import segmentation
-
+from .model_select import model_selection
 
 def parsing_arguments(args=None):
     """
@@ -152,14 +152,6 @@ def parsing_arguments(args=None):
         required=False,
         default=config.compute_cn.mergebaf,
         help="BAF tolerance used for finding the clonal copy numbers (default: 0.04)",
-    )
-    parser.add_argument(
-        "--model_select",
-        type=str,
-        required=False,
-        default=config.compute_cn.model_select,
-        choices=["objective", "likelihood"],
-        help="Final model-selection scoring method. (default: likelihood)",
     )
     parser.add_argument(
         "-l",
@@ -496,7 +488,6 @@ def parsing_arguments(args=None):
         "v": args.verbosity,
         "binwise": args.binwise,
         "purities": args.purities,
-        "model_select": args.model_select,
     }
 
 
@@ -617,7 +608,6 @@ def main(args=None):
         diploidObjs,
         tetraploidObjs,
         wd=args["x"],
-        score_option=args["model_select"],
         v=args["v"],
     )
     return
@@ -1897,163 +1887,6 @@ class ProgressBar:
         if self.counter == self.total:
             write("\n")
             flush()
-
-
-##################################################
-import pandas as pd
-import numpy as np
-import kneed
-import matplotlib.pyplot as plt
-
-
-def model_selection(
-    diploid_objs: list,
-    tetraploid_objs: list,
-    score_option: str,
-    wd: str,
-    v=1,
-):
-    """
-    1. per solution instance, compute likelihoods of observed RDR and BAF given CNP.
-    2. select best solution based on elbow detection on likelihood curves.
-    3. WGD ver no WGD by principle of parsimony.
-    """
-
-    def compute_expected_fcn(row, n):
-        fcn = float(row["u_normal"]) * 2
-        fcn_b = float(row["u_normal"])
-        for nn in range(1, n):
-            a, b = str(row[f"cn_clone{nn}"]).split("|")
-            a = int(a)
-            b = int(b)
-            fcn += float(row[f"u_clone{nn}"]) * (a + b)
-            fcn_b += float(row[f"u_clone{nn}"]) * b
-        return fcn, fcn_b
-
-    def ll_gauss_profile(res, floor_rss=1e-12):
-        n = res.size
-        if n == 0:
-            return 0.0
-        rss = float(np.sum(res * res))
-        rss = max(rss, floor_rss)
-        return -0.5 * n * (1.0 + np.log(2 * np.pi) + np.log(rss / n))
-
-    if len(diploid_objs) == 0 and len(tetraploid_objs) == 0:
-        # sys.stderr.write(info("ERROR! no solution found for either diploid or tetraploid setting!"))
-        raise ValueError(
-            f"ERROR! no solution found for either diploid or tetraploid setting!"
-        )
-
-    score_by_likelihood = score_option == "likelihood"
-    sys.stdout.write(
-        info(f"Model selection score_by_likelihood={score_by_likelihood}\n")
-    )
-
-    chosen_ns = {}
-    for [ploidy, ploidy_objs] in [
-        ["diploid", diploid_objs],
-        ["tetraploid", tetraploid_objs],
-    ]:
-        if len(ploidy_objs) == 0:
-            sys.stdout.write(info(f"no {ploidy} solutions\n"))
-            continue
-        ns = []
-        objs = []
-        lls = []
-        for n, (obj, gamma), outprefix in ploidy_objs:
-            n = int(n)
-            obj = float(obj)
-            gamma = float(gamma)
-            seg_file = f"{outprefix}.seg.ucn.tsv"
-            bbc_file = f"{outprefix}.bbc.ucn.tsv"
-            segs = pd.read_table(seg_file, sep="\t")
-            bbcs = pd.read_table(bbc_file, sep="\t")
-            bbcs["FCN"] = bbcs["RD"] * float(gamma)
-            bbcs.loc[:, ["exp-FCN", "exp-FCN-b"]] = bbcs.apply(
-                func=lambda r: compute_expected_fcn(r, n), axis=1, result_type="expand"
-            )
-            ll = 0.0
-            for (cluster_id, sample_id), bbc_sub in bbcs.groupby(
-                by=["CLUSTER", "SAMPLE"], sort=False
-            ):
-                obs_fcns = bbc_sub["FCN"].to_numpy()
-                obs_bafs = bbc_sub["BAF"].to_numpy()
-                exp_fcns = bbc_sub["exp-FCN"].to_numpy()
-                exp_fcns_b = bbc_sub["exp-FCN-b"].to_numpy()
-                exp_bafs = np.divide(
-                    exp_fcns_b,
-                    exp_fcns,
-                    where=exp_fcns > 0,
-                    out=np.full(len(bbc_sub), 0.5),
-                )
-
-                res_fcn = obs_fcns - exp_fcns
-                ll_fcn = ll_gauss_profile(res_fcn[np.isfinite(res_fcn)])
-                res_baf = obs_bafs - exp_bafs
-                ll_baf = ll_gauss_profile(res_baf[np.isfinite(res_baf)])
-                ll += ll_fcn + ll_baf
-            ns.append(n)
-            objs.append(obj)
-            lls.append(ll)
-            sys.stdout.write(info(f"{ploidy}: n={n}, obj={obj}, loglik={ll}\n"))
-        chosen_n = ns[0]
-        if len(ns) > 1:
-            ns = np.array(ns, dtype=np.int32)
-            objs = np.array(objs, dtype=np.float32)
-            neg_lls = -1 * np.array(lls)
-
-            kl_negll = kneed.KneeLocator(
-                x=ns, y=neg_lls, curve="convex", direction="decreasing"
-            )
-            chosen_n_negll = int(kl_negll.elbow) if kl_negll.elbow is not None else ns[0]
-            sys.stdout.write(info(f"{ploidy}: n chosen by loglik={chosen_n_negll}\n"))
-            kl_negll.plot_knee(
-                title="Model Selection Pareto Curve",
-                xlabel="#clones",
-                ylabel="negative log-likelihood",
-            )
-            plt.savefig(os.path.join(wd, f"kneed_plot.loglik.{ploidy}.png"), dpi=100)
-
-            kl_obj = kneed.KneeLocator(x=ns, y=objs, curve="convex", direction="decreasing")
-            chosen_n_obj = int(kl_obj.elbow) if kl_obj.elbow is not None else ns[0]
-            sys.stdout.write(info(f"{ploidy}: n chosen by obj={chosen_n_obj}\n"))
-            kl_obj.plot_knee(
-                title="Model Selection Pareto Curve",
-                xlabel="#clones",
-                ylabel="objectives",
-            )
-            plt.savefig(os.path.join(wd, f"kneed_plot.objective.{ploidy}.png"), dpi=100)
-            chosen_n = chosen_n_negll if score_by_likelihood else chosen_n_obj
-        sys.stdout.write(info(f"{ploidy}: choose n={chosen_n}\n"))
-        chosen_outprefix = [
-            outprefix for n, _, outprefix in ploidy_objs if int(n) == chosen_n
-        ][0]
-        chosen_ns[ploidy] = chosen_n
-        # save chosen sol
-        out_bbc = os.path.join(wd, f"chosen.{ploidy}.bbc.ucn")
-        out_seg = os.path.join(wd, f"chosen.{ploidy}.seg.ucn")
-        shutil.copy2(f"{chosen_outprefix}.bbc.ucn.tsv", out_bbc)
-        shutil.copy2(f"{chosen_outprefix}.seg.ucn.tsv", out_seg)
-
-    # choose ploidy by parsimony of clones
-    final_ploidy = min(chosen_ns.keys(), key=lambda p: chosen_ns[p])
-    final_n = chosen_ns[final_ploidy]
-    sys.stdout.write(
-        info(f"final model selection: ploidy={final_ploidy}, n={final_n}\n")
-    )
-
-    # save final selected solutions
-    shutil.copy2(
-        os.path.join(wd, f"chosen.{final_ploidy}.bbc.ucn"),
-        os.path.join(wd, "best.bbc.ucn"),
-    )
-    shutil.copy2(
-        os.path.join(wd, f"chosen.{final_ploidy}.seg.ucn"),
-        os.path.join(wd, "best.seg.ucn"),
-    )
-
-    return
-
 
 if __name__ == "__main__":
     main()
