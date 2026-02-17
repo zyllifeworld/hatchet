@@ -552,7 +552,7 @@ def main(args=None):
     ##################################################
     run_diploid = args["diploid"]
     run_tetraploid = args["tetraploid"]
-    if not args["diploid"] and not args["tetraploid"]:
+    if not run_diploid and not run_tetraploid:
         run_diploid = True
         run_tetraploid = True
 
