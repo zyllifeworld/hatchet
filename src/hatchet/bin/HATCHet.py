@@ -13,6 +13,7 @@ from hatchet.utils.solve import solve
 from hatchet.utils.solve.utils import segmentation
 from .model_select import model_selection
 
+
 def parsing_arguments(args=None):
     """
     Parse command line arguments
@@ -152,6 +153,14 @@ def parsing_arguments(args=None):
         required=False,
         default=config.compute_cn.mergebaf,
         help="BAF tolerance used for finding the clonal copy numbers (default: 0.04)",
+    )
+    parser.add_argument(
+        "--model_select",
+        type=str,
+        choices=["likelihood", "objective"],
+        required=False,
+        default=config.compute_cn.model_select,
+        help="Model-selection option. (default: likelihood)",
     )
     parser.add_argument(
         "-l",
@@ -474,6 +483,7 @@ def parsing_arguments(args=None):
         "mB": args.mergeBAF,
         "limit": args.limitinc,
         "g": args.ghostprop,
+        "model_select": args.model_select,
         "p": args.seeds,
         "j": args.jobs,
         "r": args.randomseed,
@@ -604,12 +614,40 @@ def main(args=None):
                 )
             )
     sys.stderr.write(log("# Selecting best solution\n"))
-    model_selection(
-        diploidObjs,
-        tetraploidObjs,
-        wd=args["x"],
-        v=args["v"],
-    )
+    if args["model_select"] == "likelihood":
+        model_selection(
+            diploidObjs,
+            tetraploidObjs,
+            wd=args["x"],
+            v=args["v"],
+        )
+    else:
+        if run_diploid and not run_tetraploid:
+            selectDiploid(
+                diploid=diploidObjs,
+                v=args["v"],
+                rundir=args["x"],
+                g=args["g"],
+                limit=args["limit"],
+            )
+        elif run_tetraploid and not run_diploid:
+            selectTetraploid(
+                tetraploid=tetraploidObjs,
+                v=args["v"],
+                rundir=args["x"],
+                g=args["g"],
+                limit=args["limit"],
+            )
+        else:
+            select(
+                diploid=diploidObjs,
+                tetraploid=tetraploidObjs,
+                v=args["v"],
+                rundir=args["x"],
+                g=args["g"],
+                limit=args["limit"],
+            )
+
     return
 
 
@@ -1887,6 +1925,7 @@ class ProgressBar:
         if self.counter == self.total:
             write("\n")
             flush()
+
 
 if __name__ == "__main__":
     main()
