@@ -33,6 +33,7 @@ dependencies = [
     "pysam",
     "requests",
     "seaborn",
+    "kneed",
     "scikit-learn",
     "scipy",
     "statsmodels"

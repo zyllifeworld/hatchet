@@ -7,7 +7,10 @@ import shutil
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+try:
+    from distutils.version import LooseVersion
+except ImportError:
+    from packaging.version import Version as LooseVersion
 
 
 class CMakeExtension(Extension):

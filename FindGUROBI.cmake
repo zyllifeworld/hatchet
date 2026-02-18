@@ -9,18 +9,29 @@ set(GUROBI_HOME "" CACHE STRING "Path where Gurobi is installed")
 if(EXISTS ${GUROBI_HOME} )
     message( "-- Gurobi's home is set to: " ${GUROBI_HOME} )
 
-    string( REGEX MATCH "gurobi[0-9][0-9][0-9]" GUROBI_VER_FULL ${GUROBI_HOME} )
-    string( REGEX MATCH "[0-9][0-9][0-9]" GUROBI_VER ${GUROBI_VER_FULL} )
+    # Detect Gurobi version and compute the library suffix.
+    # Old format (<=9.x): path contains gurobiXXX (3 compact digits, e.g. gurobi902)
+    #   -> lib suffix = first 2 digits (e.g. "90" -> libgurobi90.so)
+    # New format (>=10.x): path contains gurobi<MAJOR>.<MINOR>.<PATCH> (e.g. gurobi11.0.3)
+    #   -> lib suffix = MAJOR*10+MINOR (e.g. 11*10+0=110 -> libgurobi110.so)
+    string( REGEX MATCH "gurobi([0-9][0-9][0-9])[^0-9.]" _OLD_FORMAT_MATCH "${GUROBI_HOME}/" )
+    string( REGEX MATCH "gurobi([0-9]+)\\.([0-9]+)\\." _NEW_FORMAT_MATCH "${GUROBI_HOME}" )
 
-    ## If the previous process fails to find the correct version of Gurobi in variable GUROBI_VER (e.g. 702, 751, 801) please provide the correct version here below by properly setting the version instead of XXX and uncommented the command
-    ## set(GUROBI_VER "XXX")
+    if( _OLD_FORMAT_MATCH )
+        string( REGEX REPLACE ".*gurobi([0-9][0-9][0-9])[^0-9.].*" "\\1" GUROBI_VER "${GUROBI_HOME}/" )
+        string( STRIP "${GUROBI_VER}" GUROBI_VER )
+        message( "-- The retrieved version of Gurobi is: " ${GUROBI_VER} )
+        string( SUBSTRING "${GUROBI_VER}" 0 2 GUROBI_VER_LIB )
+    elseif( _NEW_FORMAT_MATCH )
+        string( REGEX REPLACE ".*gurobi([0-9]+)\\.([0-9]+)\\..*" "\\1" _GUROBI_MAJOR "${GUROBI_HOME}" )
+        string( REGEX REPLACE ".*gurobi([0-9]+)\\.([0-9]+)\\..*" "\\2" _GUROBI_MINOR "${GUROBI_HOME}" )
+        math( EXPR GUROBI_VER_LIB "${_GUROBI_MAJOR} * 10 + ${_GUROBI_MINOR}" )
+        message( "-- The retrieved version of Gurobi is: ${_GUROBI_MAJOR}.${_GUROBI_MINOR} (lib suffix: ${GUROBI_VER_LIB})" )
+    else()
+        message( FATAL_ERROR "Cannot determine Gurobi version from GUROBI_HOME: ${GUROBI_HOME}" )
+    endif()
 
-    string(STRIP ${GUROBI_VER} GUROBI_VER )
-    message( "-- The retrieved version of Gurobi is: " ${GUROBI_VER} )
-
-    string(SUBSTRING ${GUROBI_VER} 0 2 GUROBI_VER_LIB)
-
-    message( "-- The retrieved name of version-specific library is " gurobi ${GUROBI_VER_LIB} )
+    message( "-- The retrieved name of version-specific library is gurobi" ${GUROBI_VER_LIB} )
 
     file( GLOB GUROBI_LIB_FILE ${GUROBI_HOME}/linux64/lib/libgurobi${GUROBI_VER_LIB}.* )
     if( GUROBI_LIB_FILE )
