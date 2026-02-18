@@ -45,10 +45,10 @@ def model_selection(
 
     if len(diploid_objs) == 0 and len(tetraploid_objs) == 0:
         raise ValueError(
-            f"ERROR! no solution found for either diploid or tetraploid setting!"
+            "ERROR! no solution found for either diploid or tetraploid setting!"
         )
 
-    sys.stdout.write(info(f"Model selection\n"))
+    sys.stdout.write(info("Model selection\n"))
 
     ploidy2scores = {}
     for [ploidy, ploidy_objs] in [

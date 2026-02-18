@@ -7,6 +7,7 @@ import shutil
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
+
 try:
     from distutils.version import LooseVersion
 except ImportError:
