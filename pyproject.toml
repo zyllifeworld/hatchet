@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "cmake>=2.8"]
+requires = ["setuptools>=61.0", "cmake>=3.5"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "hatchet"
-version = "2.1.0"
+version = "2.2.0"
 authors = [
   { name="Simone Zaccaria", email="s.zaccaria@ucl.ac.uk" },
   { name="Ben Raphael", email="braphael@cs.princeton.edu" },
