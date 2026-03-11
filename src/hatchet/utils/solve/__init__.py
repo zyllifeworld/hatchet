@@ -112,7 +112,7 @@ def solve(
                 purities=purities,
             )
             ilp.create_model(pprint=True)
-            return ilp.run(solver_type=solver, timelimit=timelimit)
+            return ilp.run(solver_type=solver, timelimit=timelimit), gamma
         elif solve_mode == "cd":
             cd = CoordinateDescent(
                 f_a=f_a,
@@ -133,7 +133,7 @@ def solve(
                 j=n_worker,
                 random_seed=random_seed,
                 timelimit=timelimit,
-            )
+            ), gamma
         else:
             cd = CoordinateDescent(
                 f_a=f_a,
@@ -170,7 +170,7 @@ def solve(
             )
             ilp.create_model()
             ilp.hot_start(cA, cB)
-            return ilp.run(solver_type=solver, timelimit=timelimit)
+            return ilp.run(solver_type=solver, timelimit=timelimit), gamma
 
     else:
         bins = OrderedDict()  # cluster_id => RDR for cluster
@@ -240,7 +240,7 @@ def solve(
                 purities=purities,
             )
             ilp.create_model(pprint=True)
-            return ilp.run(solver_type=solver, timelimit=timelimit)
+            return ilp.run(solver_type=solver, timelimit=timelimit), gamma
         elif solve_mode == "cd":
             cd = CoordinateDescentSplit(
                 f_a=f_a,
@@ -262,7 +262,7 @@ def solve(
                 j=n_worker,
                 random_seed=random_seed,
                 timelimit=timelimit,
-            )
+            ), gamma
         else:
             cd = CoordinateDescentSplit(
                 f_a=f_a,
@@ -302,4 +302,4 @@ def solve(
             )
             ilp.create_model()
             ilp.hot_start(cA, cB)
-            return ilp.run(solver_type=solver, timelimit=timelimit)
+            return ilp.run(solver_type=solver, timelimit=timelimit), gamma

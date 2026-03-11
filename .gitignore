@@ -5,6 +5,8 @@ src/hatchet/solve
 !tests/data/fw/best.bbc.ucn
 !tests/data/fw/results/best.bbc.ucn
 
+.venv/
+
 # Build directory
 build/
 

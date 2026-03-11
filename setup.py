@@ -7,7 +7,11 @@ import shutil
 
 from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
-from distutils.version import LooseVersion
+
+try:
+    from distutils.version import LooseVersion
+except ImportError:
+    from packaging.version import Version as LooseVersion
 
 
 class CMakeExtension(Extension):
@@ -30,8 +34,8 @@ class CMakeBuild(build_ext):
             cmake_version = LooseVersion(
                 re.search(r"version\s*([\d.]+)", out.decode()).group(1)
             )
-            if cmake_version < "3.1.0":
-                raise RuntimeError("CMake >= 3.1.0 is required on Windows")
+            if cmake_version < "3.5.0":
+                raise RuntimeError("CMake >= 3.5.0 is required")
 
         for ext in self.extensions:
             self.build_extension(ext)

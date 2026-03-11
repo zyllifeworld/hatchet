@@ -12,7 +12,22 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        include:
+          - python: "3.8"
+            gurobi_version: "11.0.3"
+            gurobi_major: "11.0"
+          - python: "3.9"
+            gurobi_version: "12.0.3"
+            gurobi_major: "12.0"
+          - python: "3.10"
+            gurobi_version: "12.0.3"
+            gurobi_major: "12.0"
+          - python: "3.11"
+            gurobi_version: "12.0.3"
+            gurobi_major: "12.0"
+          - python: "3.12"
+            gurobi_version: "12.0.3"
+            gurobi_major: "12.0"
       fail-fast: false
 
     steps:
@@ -38,15 +53,27 @@ jobs:
 
       - name: Install Gurobi
         run: |
-          wget https://packages.gurobi.com/9.0/gurobi9.0.2_linux64.tar.gz -O gurobi9.0.2_linux64.tar.gz
-          tar xvzf gurobi9.0.2_linux64.tar.gz
-          (cd gurobi902/linux64/src/build && make)
-          (cd gurobi902/linux64/lib && ln -f -s ../src/build/libgurobi_c++.a libgurobi_c++.a)
-          echo "GUROBI_HOME=$(realpath gurobi902)" >> $GITHUB_ENV
+          wget https://packages.gurobi.com/${{ matrix.gurobi_major }}/gurobi${{ matrix.gurobi_version }}_linux64.tar.gz -O gurobi_linux64.tar.gz
+          tar xvzf gurobi_linux64.tar.gz
+          GUROBI_EXTRACTED=$(find . -maxdepth 1 -name "gurobi*" -type d | head -1 | sed 's|./||')
+          if [ -d "$GUROBI_EXTRACTED/linux64" ]; then
+            GUROBI_SUBDIR="$GUROBI_EXTRACTED/linux64"
+          else
+            GUROBI_SUBDIR="$GUROBI_EXTRACTED"
+          fi
+          (cd $GUROBI_SUBDIR/src/build && make)
+          (cd $GUROBI_SUBDIR/lib && ln -f -s ../src/build/libgurobi_c++.a libgurobi_c++.a)
+          echo "GUROBI_HOME=$(realpath $GUROBI_EXTRACTED)" >> $GITHUB_ENV
 
       - name: Activate Gurobi License
         run: |
-          (cd gurobi902/linux64/bin && ./grbgetkey -q ${{ secrets.GUROBI_KEYCODE }} --path ${GUROBI_HOME})
+          GUROBI_EXTRACTED=$(find . -maxdepth 1 -name "gurobi*" -type d | head -1 | sed 's|./||')
+          if [ -d "$GUROBI_EXTRACTED/linux64" ]; then
+            GUROBI_BIN="$GUROBI_EXTRACTED/linux64/bin"
+          else
+            GUROBI_BIN="$GUROBI_EXTRACTED/bin"
+          fi
+          ($GUROBI_BIN/grbgetkey -q ${{ secrets.GUROBI_KEYCODE }} --path ${GUROBI_HOME})
           echo "GRB_LICENSE_FILE=${GUROBI_HOME}/gurobi.lic" >> $GITHUB_ENV
         continue-on-error: true
 
@@ -173,7 +200,10 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python: [3.8]
+        include:
+          - python: "3.8"
+            gurobi_version: "11.0.3"
+            gurobi_major: "11.0"
 
     steps:
       - uses: actions/checkout@v2
@@ -192,11 +222,17 @@ jobs:
 
       - name: Install Gurobi
         run: |
-          wget https://packages.gurobi.com/9.0/gurobi9.0.2_linux64.tar.gz -O gurobi9.0.2_linux64.tar.gz
-          tar xvzf gurobi9.0.2_linux64.tar.gz
-          (cd gurobi902/linux64/src/build && make)
-          (cd gurobi902/linux64/lib && ln -f -s ../src/build/libgurobi_c++.a libgurobi_c++.a)
-          echo "GUROBI_HOME=$(realpath gurobi902)" >> $GITHUB_ENV
+          wget https://packages.gurobi.com/${{ matrix.gurobi_major }}/gurobi${{ matrix.gurobi_version }}_linux64.tar.gz -O gurobi_linux64.tar.gz
+          tar xvzf gurobi_linux64.tar.gz
+          GUROBI_EXTRACTED=$(find . -maxdepth 1 -name "gurobi*" -type d | head -1 | sed 's|./||')
+          if [ -d "$GUROBI_EXTRACTED/linux64" ]; then
+            GUROBI_SUBDIR="$GUROBI_EXTRACTED/linux64"
+          else
+            GUROBI_SUBDIR="$GUROBI_EXTRACTED"
+          fi
+          (cd $GUROBI_SUBDIR/src/build && make)
+          (cd $GUROBI_SUBDIR/lib && ln -f -s ../src/build/libgurobi_c++.a libgurobi_c++.a)
+          echo "GUROBI_HOME=$(realpath $GUROBI_EXTRACTED)" >> $GITHUB_ENV
 
       - name: Install package
         run: |
